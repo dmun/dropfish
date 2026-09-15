@@ -1,43 +1,37 @@
+mod cli;
+mod config;
+mod server;
+
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use axum::response::IntoResponse;
+use reqwest::StatusCode;
+use tracing_subscriber::EnvFilter;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about=None)]
-struct Args {
-    #[command(subcommand)]
-    command: Command,
-}
+// enum Backend {}
 
-#[derive(Subcommand, Debug)]
-enum Command {
-    File {
-        #[command(subcommand)]
-        command: FileCommand,
-    },
-}
+pub(crate) struct AppError(anyhow::Error);
 
-#[derive(Subcommand, Debug)]
-enum FileCommand {
-    Put { source: String, destination: String },
-    Get { path: String },
-}
-
-enum Backend {}
-
-fn handle_file(command: FileCommand) -> Result<()> {
-    match command {
-        FileCommand::Put {
-            source,
-            destination,
-        } => Ok(()),
-        FileCommand::Get { path } => Ok(()),
+impl<E: Into<anyhow::Error>> From<E> for AppError {
+    fn from(value: E) -> Self {
+        Self(value.into())
     }
 }
 
-fn main() -> Result<()> {
-    let args = Args::parse();
-
-    match args.command {
-        Command::File { command } => handle_file(command),
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        tracing::error!(error = ?self.0, "Request failed");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "tower_http=debug,dropfish=debug".into()),
+        )
+        .init();
+
+    cli::run().await
 }
