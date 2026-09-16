@@ -22,7 +22,7 @@ async fn handle_download(
     State(config): State<Arc<Config>>,
     Query(params): Query<FileParamas>,
 ) -> anyhow::Result<Vec<u8>, AppError> {
-    let path = config.location.join(params.destination);
+    let path = config.server_dir.join(params.destination);
 
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
@@ -36,7 +36,7 @@ async fn handle_upload(
     Query(params): Query<FileParamas>,
     body: Bytes,
 ) -> anyhow::Result<StatusCode, AppError> {
-    let path = config.location.join(params.destination);
+    let path = config.server_dir.join(params.destination);
 
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
@@ -47,7 +47,7 @@ async fn handle_upload(
     Ok(StatusCode::CREATED)
 }
 
-pub(crate) fn app(config: Config) -> Router {
+pub fn app(config: Config) -> Router {
     Router::new()
         .route("/file", put(handle_upload))
         .route("/file", get(handle_download))

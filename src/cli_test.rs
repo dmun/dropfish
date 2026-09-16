@@ -17,7 +17,7 @@ impl TestServer {
     async fn start() -> Result<Self> {
         let storage = tempfile::tempdir()?;
         let mut config = Config::default();
-        config.location = storage.path().to_path_buf();
+        config.server_dir = storage.path().to_path_buf();
 
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let endpoint = format!("http://{}/file", listener.local_addr()?);

@@ -9,7 +9,7 @@ use tracing_subscriber::EnvFilter;
 
 // enum Backend {}
 
-pub(crate) struct AppError(anyhow::Error);
+pub struct AppError(anyhow::Error);
 
 impl<E: Into<anyhow::Error>> From<E> for AppError {
     fn from(value: E) -> Self {
