@@ -1,8 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use axum::{Router, body::Bytes, extract::{Query, State}, routing::{get, put}};
-use reqwest::{StatusCode};
+use axum::{
+    Router,
+    body::Bytes,
+    extract::{Query, State},
+    routing::{get, put},
+};
+use reqwest::StatusCode;
 use serde::Deserialize;
 use tower_http::trace::TraceLayer;
 
@@ -42,17 +47,17 @@ async fn handle_upload(
     Ok(StatusCode::CREATED)
 }
 
-pub async fn serve(config: Config) -> Result<()> {
-    let address = config.address();
-
-    let app = Router::new()
+pub(crate) fn app(config: Config) -> Router {
+    Router::new()
         .route("/file", put(handle_upload))
         .route("/file", get(handle_download))
         .with_state(Arc::new(config))
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+}
 
-    let listener = tokio::net::TcpListener::bind(address).await?;
-    axum::serve(listener, app).await?;
+pub async fn serve(config: Config) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind(config.address()).await?;
+    axum::serve(listener, app(config)).await?;
 
     Ok(())
 }

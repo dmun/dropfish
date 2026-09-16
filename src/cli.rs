@@ -1,10 +1,15 @@
+use std::path::Path;
+
 use anyhow::Result;
 use clap::Parser;
 use clap::Subcommand;
-use serde::Deserialize;
 
 use crate::config::Config;
 use crate::server::serve;
+
+#[cfg(test)]
+#[path = "cli_test.rs"]
+mod tests;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about=None)]
@@ -28,33 +33,41 @@ enum FileCommand {
     Download { path: String },
 }
 
+async fn upload(endpoint: &str, source: &Path, destination: &str) -> Result<()> {
+    let contents = tokio::fs::read(source).await?;
+    reqwest::Client::new()
+        .put(endpoint)
+        .query(&[("destination", destination)])
+        .body(contents)
+        .send()
+        .await?
+        .error_for_status()?;
+    Ok(())
+}
+
+async fn download(endpoint: &str, destination: &str) -> Result<Vec<u8>> {
+    let response = reqwest::Client::new()
+        .get(endpoint)
+        .query(&[("destination", destination)])
+        .send()
+        .await?
+        .error_for_status()?;
+    Ok(response.bytes().await?.to_vec())
+}
+
 async fn handle_file(config: Config, command: FileCommand) -> Result<()> {
     let endpoint = format!("http://{}/file", config.address());
-    let client = reqwest::Client::new();
 
     match command {
         FileCommand::Upload {
             source,
             destination,
         } => {
-            let contents = tokio::fs::read(source).await?;
-            client
-                .put(endpoint)
-                .query(&[("destination", destination)])
-                .body(contents)
-                .send()
-                .await?
-                .error_for_status()?;
+            upload(&endpoint, Path::new(&source), &destination).await?;
         }
         FileCommand::Download { path: destination } => {
-            let result = client
-                .get(endpoint)
-                .query(&[("destination", destination)])
-                .send()
-                .await?
-                .error_for_status()?;
-
-            dbg!(result.text().await?);
+            let contents = download(&endpoint, &destination).await?;
+            dbg!(String::from_utf8_lossy(&contents));
         }
     };
 
